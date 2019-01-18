@@ -1,0 +1,253 @@
+---
+title: "APA HW1"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=7, fig.height=6) 
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+bikeshare <- read.csv("C:/Users/Deboleena/OneDrive - Southern Methodist University/Desktop/MSBA/Fall/Mod B/Applied Predictive Analytics/HW 1/HW1 bikeshare.csv")
+library(e1071) # it includes function to compute skewness
+library(plyr) # it allows to wrangle data
+library(dplyr)
+library(ggplot2) # it allows to create a number of different types of plot
+library("GGally")
+
+```
+
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+colSums(is.na(bikeshare))
+```
+The reason we chose cnt as our dependent variable is because i) it includes both casual and registered bike rentals ii) it was normally distributed. Next we checked the summary of the dataset and found that there were no missing values or highly abnormal values i.e. for example negative values. Subsequently, we checked the distribution of all variables and found that the following variables are normally distributed: atemp, cnt, registered, and temp. Furthermore, we found that casual and windspeed are right skewed while humidity is left skewed
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+library(purrr)
+library(tidyr)
+library(ggplot2)
+
+bikeshare %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value),col("blue")) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
+
+```
+
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+cols <- c("season", "workingday","yr","mnth","holiday","weekday","weathersit")
+bikeshare[,cols] <- data.frame(apply(bikeshare[cols], 2, as.factor))
+head(bikeshare)
+summary(bikeshare)
+```
+
+
+```{r echo=FALSE, include=FALSE}
+bikeshare$yr <- factor(format(bikeshare$yr, format="%A"),levels = c("0", "1") , labels = c("2011","2012"))
+table(bikeshare$yr)
+table(bikeshare$season)
+
+```
+
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+h <- hist(bikeshare$cnt, breaks = 26, ylab = 'Rental Frequency', xlab = 'Total Bike  Count', main = 'Distribution of Bike Rental Count', col = 'lightblue' )
+xfit <- seq(min(bikeshare$cnt),max(bikeshare$cnt), length = 55)
+yfit <- dnorm(xfit, mean =mean(bikeshare$cnt),sd=sd(bikeshare$cnt))
+yfit <- yfit*diff(h$mids[1:2])*length(bikeshare$cnt)
+lines(xfit,yfit, col='black', lwd= 4)
+```
+
+ 
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+h <- hist(bikeshare$registered, breaks = 25, ylab = 'Frequency of Rental', xlab = 'Registered Bike Count', main = 'Distribution of Registered Bike ', col = 'lightblue' )
+
+xfit <- seq(min(bikeshare$registered),max(bikeshare$registered), length = 55)
+yfit <- dnorm(xfit, mean =mean(bikeshare$registered),sd=sd(bikeshare$registered))
+yfit <- yfit*diff(h$mids[1:2])*length(bikeshare$registered)
+lines(xfit,yfit, col='black', lwd= 4)
+```
+
+```{r echo=FALSE, , include=FALSE, message=FALSE, warning=FALSE}
+bikeshare$dteday <- as.Date(bikeshare$dteday)
+#ggcorr(bikeshare)
+bikeshare$season <- mapvalues(bikeshare$season, from = c(1, 2, 3, 4), to = c("spring", "summer", "fall", "winter"))
+bikeshare$yr <- mapvalues(bikeshare$yr, from = c(0, 1), to = c(2011, 2012))
+bikeshare$mnth <- mapvalues(bikeshare$mnth, from = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), to = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+bikeshare$weekday <- mapvalues(bikeshare$weekday, from = c(0, 1, 2, 3, 4, 5, 6), to = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+bikeshare$holiday <- mapvalues(bikeshare$holiday, from = c(0, 1), to = c("Not Holiday", "Holiday"))
+```
+
+```{r echo=FALSE, , include=FALSE, message=FALSE, warning=FALSE}
+
+# Shapiro-Wilk normality test for cnt
+#H0: data are normally distributed distributed
+shapiro.test(bikeshare$cnt) 
+shapiro.test(bikeshare$registered) 
+shapiro.test(bikeshare$casual) 
+```
+
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+bikeshare$season <- factor(format(bikeshare$season, format="%A"),
+                          levels = c("1", "2", "3", "4") , labels = c("Spring ","Summer", "Fall", "Winter"))
+table(bikeshare$season)
+```
+
+Next we ran a linear regression against all the dependent variables in the dataset and found that  the following variables contribute most for predicting the cnt of bike rentals on any given day: atemp, windspeed, humidity, season, weathersit, weekdays (Wednesday through Saturday), holiday, mnth (excluding Feb), and yr. The reason we dropped weekdays Monday and Tuesday as well as mnth Feb was because after reviewing their high p-values we found that they do not contribute significantly to the overall fit of the model.
+
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+#Final Model 
+model4 <- lm(cnt ~ windspeed + hum + atemp + weathersit + factor(weekday, exclude=c('Tuesday','Monday')) + holiday + factor(mnth, exclude=c('Feb')) + yr, data = bikeshare)
+summary(model4)
+
+```
+```{r echo=FALSE,  message=FALSE, warning=FALSE }
+library("corrplot")
+num <- dplyr::select_if(bikeshare, is.numeric)
+M<-cor(num)
+
+corrplot(M, method="number")
+```
+
+Our correlation plot revealed that atemp and temp are highly correlated so we investigated further and found that the VIF for both variables were much greater than 5, meaning it would be difficult to distinguish which variable independently contributed to the model. We then decided to exclude temp from our final model because it has a higher VIF. Similarly, we also removed workingday from our final model.
+
+
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+library(modelr)
+ggplot(model4, aes(.fitted, .resid)) +
+  geom_ref_line(h = 0) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  ggtitle("Residuals vs Fitted")
+```
+
+
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+#Interaction - A significant Intercation was found between 2 variables atemp and Factor 
+model5 <- lm(cnt ~ windspeed + hum + atemp + atemp*factor(mnth, exclude=c('Feb')) + weathersit + factor(weekday, exclude=c('Tuesday','Monday')) + holiday + factor(mnth, exclude=c('Feb')) + yr, data = bikeshare)
+summary(model5)
+```
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+ggplot(model4, aes(.fitted, .resid)) +
+  geom_ref_line(h = 0) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  ggtitle("Residuals vs Fitted")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+par(mfrow=c(2,2))
+plot(model4)
+```
+
+Based on Cook's distance we found 28 outliers in the original dataset that significantly influenced the linear regression. Upon further review, we found that most bike rentals were on clear days with cool temperatures, however, we found several data points where the temperature was above 30ºC with high humidity yet bike rentals were nearly double the average. 
+
+```{r echo=FALSE,echo=FALSE, include=FALSE, message=FALSE, warning=FALSE }
+require(reshape2)
+ggplot(data = melt(bikeshare), aes(x=variable, y=value)) + geom_boxplot(aes(fill=variable))
+```
+```{r echo=FALSE}
+# Visual representation of Residual vs Fitted, Normal QQplot, Residuals vs Leverage
+cooksd <- cooks.distance(model4)
+plot(cooksd, pch="*", cex=2, main="Influential Obs by Cooks distance" )  # plot cook's distance
+abline(h = 4*mean(cooksd, na.rm=T), col="red")  # add cutoff line
+text(x=1:length(cooksd)+1, y=cooksd, labels=ifelse(cooksd>4*mean(cooksd, na.rm=T),names(cooksd),""), col="red")  #add labels
+
+```
+
+
+
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+influential <- as.numeric(names(cooksd)[(cooksd > 4*mean(cooksd, na.rm=T))])
+head(bikeshare[influential, ])  # influential observations.
+```
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(car)
+vif_ref<- vif(model4)
+vif_ref[,c(1,2)]
+```
+
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+#Checking independence
+durbinWatsonTest(model4)
+```
+
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+#Checking independence with autocorrelations
+acf(model4$residuals)
+```
+
+```{r echo=FALSE,include=FALSE, message=FALSE, warning=FALSE}
+#Normality of the residuals
+qqnorm(y = model4$residuals)
+```
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+#T Quantiles
+qqPlot(model4)
+```
+
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+qqPlot(log(model4$residuals))
+```
+
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+plot(model4, which = 1)
+```
+
+
+
+A few important insights we gleaned from the data include more bike rentals occur on weekdays and on non-holidays meaning it is highly likely that renters are using bikes to commute to work rather than for recreation. Furthermore, we found that when the skies are clear, during the fall, and on weekdays that are non-holidays more people rent bikes. One possible way to get more bike rentals is for the company to offer easy accessibility - place rental bikes like near suburbs. Furthermore, those people who ride their bikes to work are generally more environmentally conscious as well as healthy, so it would be beneficial for the company to strategically align themselves with healthy food products such as vitamin water and/or environmentally conscious groups such as Greenpeace.
+
+In addition, we feel that some low hanging fruit to increase revenue would be to offer promotions during holidays to get more overall bike rentals. The reason being during the short span of 21 days of holiday across 2 years, there was an average of 3,700+ bike rentals, meaning customers are eager to rent bikes however may choose not to do so because of price. Therefore, offering promotions such as free trial bike rentals during periods right before a holiday season could increase the amount of casual users who would then be motivated to convert into registered users given a competitive price.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
