@@ -1,5 +1,5 @@
 ---
-title: "APA HW1"
+title: "Multiple Regression"
 output:
   pdf_document: default
   word_document: default
@@ -143,7 +143,7 @@ par(mfrow=c(2,2))
 plot(model4)
 ```
 
-Based on Cook's distance we found 28 outliers in the original dataset that significantly influenced the linear regression. Upon further review, we found that most bike rentals were on clear days with cool temperatures, however, we found several data points where the temperature was above 30ºC with high humidity yet bike rentals were nearly double the average. 
+Based on Cook's distance we found 28 outliers in the original dataset that significantly influenced the linear regression. Upon further review, we found that most bike rentals were on clear days with cool temperatures, however, we found several data points where the temperature was above 30ÂºC with high humidity yet bike rentals were nearly double the average. 
 
 ```{r echo=FALSE,echo=FALSE, include=FALSE, message=FALSE, warning=FALSE }
 require(reshape2)
